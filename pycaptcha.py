@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import time
 import os 
+from operator import itemgetter
 
 # Usage:
 # pycaptcha input_image method acceptance_threshold intensity_threshold 
@@ -22,6 +23,8 @@ start_time = time.time()
 INTENSITY_THRESHOLD = 155
 #reject matches below 
 THRESHOLD = 0.87
+#captcha length 
+CAPTCHA_LENGTH = 3
 
 templates = []
 
@@ -44,7 +47,7 @@ def binarize(image, threshold):
 # Print the matches for each character 
 def print_matches(matches):
 	for match in matches:
-		print match[0], match[1]	
+		print match[0], match[1], match[2]	
 	
 # Solves the CAPTCHA and returns a 3 character string
 def solve_captcha(image, threshold):
@@ -76,17 +79,29 @@ def solve_captcha(image, threshold):
 		
 		# Reject results beold THRESHOLD %
 		if (max_val > threshold):
-			positions.append([max_loc[0], chr(65+character)])
+			positions.append([chr(65+character),max_loc[0], max_val])
 			
-		matches.append([chr(65+character), max_val])
+		matches.append([chr(65+character),max_loc[0], max_val])
+		
+	# Method 1 for removing false matches on the character 'I' 
+	# If the failed CAPTCHA is more than 3 characters long and contains an 'I'  
+	# and the match is the lowest of the other characters, reject the 'I'
+	if len(positions) > CAPTCHA_LENGTH:
+		# Sort by match 
+		positions = sorted(positions, key=itemgetter(2))
+		# If the lowest match in the captcha is 'I', remove it from the list
+		for index,p in enumerate(positions):
+			if p[0] == 'I':
+				del positions[index]
 
 	# Sort character matches by x-position for correct string  
-	positions.sort()
+	positions = sorted(positions, key=itemgetter(1))
+	
 	captcha = ""
 	for pair in positions:
-		captcha += pair[1]
+		captcha += pair[0]
 	
-	return matches, captcha;
+	return matches, captcha, positions;
 
 	
 folder = "captchas"
@@ -95,19 +110,22 @@ files = os.listdir("captchas")
 total_captchas = len(files)
 failed = 0
 
-
+positions = []
 
 for file in files:
 	image = cv2.imread(os.path.join(folder,file),0)
-	matches, result = solve_captcha(image,THRESHOLD)
+	matches, result, positions = solve_captcha(image,THRESHOLD)
 	#print os.path.join(folder,file), os.path.join(folder,result+'.jpg')
 	#os.rename(os.path.join(folder,file), os.path.join(folder,result+'.jpg'))
-	if len(result) != 3:
+	if len(result) != CAPTCHA_LENGTH:
 		failed += 1
-		print_matches(matches)
-		print result 
-
+		print "Failed '" + result + "' in " + str(file) 
+		print positions
+		print_matches(matches) 
+		
 accuracy = 100 * ((total_captchas - failed)/float(total_captchas))
+print "Total CAPTCHAs: " + str(total_captchas)
+print "Failed: " + str(failed)
 print "Accuracy: %.2f%% " % accuracy
 print("Time: %s seconds" % (time.time() - start_time))
 	
