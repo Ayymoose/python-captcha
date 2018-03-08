@@ -18,21 +18,24 @@ INTENSITY_THRESHOLD = 155
 #captcha length 
 CAPTCHA_LENGTH = 3
 
+WHITE = 0
+BLACK = 255
+
 templates = []
 
 for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
 	templates.append(letter + '.png')
 
-# Binarizes an image based on intensity threshold
-def binarize(image, threshold):
+# Binarises an image based on intensity threshold
+def binarise(image, threshold):
 	height, width = image.shape[:2]
 	bin_img = image.copy()
 	for x in range(height):
 		for y in range(width):
 			if image[x][y] <= threshold:
-				bin_img[x][y] = 0
+				bin_img[x][y] = WHITE
 			else:
-				bin_img[x][y] = 255
+				bin_img[x][y] = BLACK
 	return bin_img;
 	
 # Print the matches for each character 
@@ -47,8 +50,9 @@ def solve_captcha(image):
 	matches = []
 	
 	height, width = image.shape[:2]
-	image = image[0:height,30:width-60]		
-	image = binarize(image,INTENSITY_THRESHOLD)
+    # Crop the captcha to increase performance
+	#image = image[0:height,30:width-60]		
+	image = binarise(image,INTENSITY_THRESHOLD)
 
 	for character, template in enumerate(templates):
 	
@@ -86,10 +90,11 @@ total_captchas = len(files)
 
 matches = []
 
+
 for file in files:
-	image = cv2.imread(os.path.join(folder,file),0)
-	result, matches = solve_captcha(image)
-	move(os.path.join(folder,file), os.path.join(folder,result+'.jpg'))
+    image = cv2.imread(os.path.join(folder,file),0)
+    result, matches = solve_captcha(image)
+    print result
 
 print "Total CAPTCHAs: " + str(total_captchas)
 print("Time: %s seconds" % (time.time() - start_time))
